@@ -1,0 +1,38 @@
+{
+  "name": "call-a-technician-unified",
+  "version": "1.0.0",
+  "description": "Call-a-Technician unified project with marketing site and admin portal",
+  "private": true,
+  "workspaces": [
+    "apps/marketing-site",
+    "apps/admin-portal",
+    "packages/backend-api"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:marketing\" \"npm run dev:portal\"",
+    "dev:backend": "cd packages/backend-api && npm run dev",
+    "dev:marketing": "cd apps/marketing-site && npm run dev",
+    "dev:portal": "cd apps/admin-portal && npm run dev",
+    "build": "npm run build:marketing && npm run build:portal && npm run build:backend",
+    "build:marketing": "cd apps/marketing-site && npm run build",
+    "build:portal": "cd apps/admin-portal && npm run build",
+    "build:backend": "cd packages/backend-api && npm run build",
+    "install:all": "npm install && npm run install:backend && npm run install:marketing && npm run install:portal",
+    "install:backend": "cd packages/backend-api && npm install",
+    "install:marketing": "cd apps/marketing-site && npm install",
+    "install:portal": "cd apps/admin-portal && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "technician",
+    "booking",
+    "admin",
+    "portal",
+    "marketing"
+  ],
+  "author": "",
+  "license": "ISC"
+}
+
