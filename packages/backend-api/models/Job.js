@@ -14,6 +14,28 @@ const JobSchema = new mongoose.Schema(
     // calendar scheduling
     startAt: { type: Date, default: null },
     endAt:   { type: Date, default: null },
+    
+    // Enhanced customer details
+    customerName: { type: String, default: '' },
+    customerId: { type: String, default: '' },
+    customerAddress: { type: String, default: '' },
+    customerEmail: { type: String, default: '' },
+    
+    // Pricing and time
+    amount: { type: Number, default: 165 },
+    durationMins: { type: Number, default: 120 },
+    additionalMins: { type: Number, default: 0 },
+    
+    // Software and discounts
+    software: [{
+      name: { type: String, required: true },
+      value: { type: Number, required: true, default: 0 }
+    }],
+    pensionYearDiscount: { type: Boolean, default: false },
+    socialMediaDiscount: { type: Boolean, default: false },
+    
+    // Troubleshooting (admin/technician only)
+    troubleshooting: { type: String, default: '' }
   },
   { timestamps: true }
 );

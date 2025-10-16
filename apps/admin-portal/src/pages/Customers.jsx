@@ -84,6 +84,7 @@ export default function Customers() {
   }
 
   async function save() {
+    console.log('Save function called');
     try {
       // simple client validation
       const cid = String(form.customerId || '').trim();
@@ -121,9 +122,14 @@ export default function Customers() {
         await api('/customers', { method: 'POST', body: payload });
       }
 
-      setOpen(false);
-      setEditingId(null);
-      setForm(blank());
+      // Add a small delay to prevent auto-closing issues
+      setTimeout(() => {
+        console.log('Closing modal after save');
+        setOpen(false);
+        setEditingId(null);
+        setForm(blank());
+      }, 100);
+      
       await load();
     } catch (e) {
       alert(e.message || 'Save failed');
@@ -157,166 +163,294 @@ export default function Customers() {
       <Header />
 
       <main className="max-w-6xl mx-auto p-4 space-y-4">
-        <section className="card p-4">
-          {/* toolbar */}
-          <div className="toolbar">
-            <div className="flex flex-wrap items-center gap-2 w-full">
-              <h2 className="text-lg font-semibold mr-2">Customers</h2>
-              <input
-                className="input flex-1 min-w-[220px]"
-                placeholder="Search name / phone / address / suburb / ID…"
-                value={q}
-                onChange={e => setQ(e.target.value)}
-              />
-              <div className="toolbar-spacer" />
-              <button className="btn btn-primary" onClick={openCreate}>
+        {/* Enhanced Customers Section */}
+        <div className="bg-brand-panel rounded-3xl border border-brand-border overflow-hidden shadow-soft">
+          <div className="bg-brand-bg px-8 py-6 border-b border-brand-border">
+            <div className="flex flex-wrap items-center gap-4 w-full">
+              <h2 className="text-3xl font-bold text-white flex items-center gap-4">
+                <span className="text-4xl">👥</span>
+                Customers
+                <span className="text-sm font-normal text-brand-sky bg-brand-blue/20 px-4 py-2 rounded-full border border-brand-border">
+                  {filtered.length} {filtered.length === 1 ? 'customer' : 'customers'}
+                </span>
+              </h2>
+
+              <div className="flex-1 flex gap-4 min-w-[300px]">
+                <input
+                  className="flex-1 px-5 py-3 rounded-2xl bg-brand-bg border border-brand-border text-text-primary placeholder-text-muted focus:border-brand-border-hover focus:ring-2 focus:ring-brand-border/30 backdrop-blur-sm"
+                  placeholder="Search customers..."
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                />
+              </div>
+
+              <button 
+                className="px-8 py-4 bg-brand-blue hover:bg-brand-blue/90 text-text-primary rounded-2xl font-bold transition-all duration-200 shadow-soft flex items-center gap-3"
+                onClick={openCreate}
+              >
+                <span className="text-xl">➕</span>
                 New Customer
               </button>
             </div>
           </div>
 
-          {/* list */}
-          {loading && <p className="text-slate-300 mt-3">Loading…</p>}
-          {err && <p className="text-rose-300 mt-3">{err}</p>}
-
-          {!loading && !err && (
-            <div className="overflow-x-auto mt-3">
-              <table className="table text-sm">
-                <thead>
-                  <tr className="text-left">
-                    <th className="py-2">Customer ID</th>
-                    <th className="py-2">Name</th>
-                    <th className="py-2">Phone</th>
-                    <th className="py-2 hidden md:table-cell">Address</th>
-                    <th className="py-2">Suburb</th>
-                    <th className="py-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(c => (
-                    <tr key={c._id}>
-                      <td className="py-2 font-semibold">{c.customerId || '—'}</td>
-                      <td className="py-2">{c.name || '—'}</td>
-                      <td className="py-2">{c.phone || '—'}</td>
-                      <td className="py-2 hidden md:table-cell">{c.address || '—'}</td>
-                      <td className="py-2">{c.suburb || '—'}</td>
-                      <td className="py-2">
-                        <div className="flex flex-wrap gap-2">
-                          <button className="btn-blue" onClick={() => createJobFor(c)}>
-                            Create Job
-                          </button>
-                          <button 
-                            className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white"
-                            onClick={() => openEdit(c)}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="px-3 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white"
-                            onClick={() => removeOne(c._id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filtered.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-6 text-center text-slate-300">
-                        No customers found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {loading && (
+            <div className="p-8 text-center">
+              <div className="text-4xl mb-4">⏳</div>
+              <p className="text-slate-300">Loading customers...</p>
             </div>
           )}
-        </section>
+          
+          {err && (
+            <div className="p-8 text-center">
+              <div className="text-4xl mb-4">❌</div>
+              <p className="text-rose-300">{err}</p>
+            </div>
+          )}
+
+          {!loading && !err && (
+            <>
+              {filtered.length === 0 ? (
+                <div className="p-8 text-center">
+                  <div className="text-6xl mb-4">👥</div>
+                  <h3 className="text-lg font-semibold text-white mb-2">No Customers Found</h3>
+                  <p className="text-slate-400 mb-4">
+                    {q.trim() ? 'No customers match your search criteria.' : 'Add your first customer to get started!'}
+                  </p>
+                  {!q.trim() && (
+                    <button
+                      onClick={openCreate}
+                      className="px-6 py-3 bg-brand-blue hover:bg-brand-blue/90 text-text-primary rounded-xl font-medium transition-all duration-200 shadow-soft"
+                    >
+                      Add First Customer
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y divide-brand-sky/10">
+                  {filtered.map(customer => (
+                    <div key={customer._id} className="p-8 hover:bg-gradient-to-r hover:from-brand-blue/5 hover:to-brand-sky/5 transition-all duration-300 group">
+                      <div className="flex items-center justify-between">
+                        {/* Left Section - Customer Info */}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-6 mb-4">
+                            <div className="w-16 h-16 bg-brand-blue/20 rounded-2xl flex items-center justify-center text-2xl border border-brand-border shadow-soft">
+                              👤
+                            </div>
+                            <div>
+                              <h3 className="text-2xl font-bold text-white group-hover:text-brand-sky transition-colors">
+                                {customer.name}
+                              </h3>
+                              <div className="flex items-center gap-6 text-sm text-text-secondary">
+                                <span className="flex items-center gap-2">
+                                  <span>🆔</span>
+                                  Customer ID: {customer.customerId || 'Not assigned'}
+                                </span>
+                                {customer.phone && (
+                                  <span className="flex items-center gap-2">
+                                    <span>📞</span>
+                                    {customer.phone}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 mb-4">
+                            {/* Customer ID Badge */}
+                            <span className="px-4 py-2 rounded-full text-sm font-bold bg-gradient-brand text-white border border-brand-blue/50 shadow-brand">
+                              🆔 ID: {customer.customerId || 'Not assigned'}
+                            </span>
+
+                            {/* Suburb Badge */}
+                            {customer.suburb && (
+                              <span className="px-4 py-2 rounded-full text-sm font-bold bg-brand-teal/20 text-brand-green border border-brand-green/50 shadow-green">
+                                📍 {customer.suburb}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Address */}
+                          {customer.address && (
+                            <div className="text-sm text-brand-sky/80 flex items-start gap-3">
+                              <span className="text-lg">🏠</span>
+                              <span>{customer.address}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right Section - Actions */}
+                        <div className="flex items-center gap-4 ml-8">
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => createJobFor(customer)}
+                              className="px-6 py-3 bg-brand-teal text-white border border-brand-green/50 rounded-2xl font-bold hover:bg-brand-teal/90 transition-all duration-200 flex items-center gap-3 shadow-green"
+                            >
+                              <span className="text-lg">🛠️</span>
+                              Create Job
+                            </button>
+                            <button
+                              onClick={() => openEdit(customer)}
+                              className="px-6 py-3 bg-brand-sky text-brand-bg border border-brand-sky/50 rounded-2xl font-bold hover:bg-brand-sky/90 transition-all duration-200 flex items-center gap-3 shadow-sky"
+                            >
+                              <span className="text-lg">✏️</span>
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => removeOne(customer._id)}
+                              className="px-6 py-3 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 rounded-2xl font-bold transition-all duration-200 flex items-center gap-3 shadow-lg"
+                            >
+                              <span className="text-lg">🗑️</span>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </main>
 
       {/* modal */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/60 grid items-start justify-center p-4 overflow-y-auto"
-          onClick={e => { if (e.target === e.currentTarget) setOpen(false); }}
+          className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+          onClick={(e) => { 
+            if (e.target === e.currentTarget) {
+              console.log('Modal closed by backdrop click');
+              // Comment out auto-close for now to prevent accidental closing
+              // setOpen(false);
+            }
+          }}
+          onKeyDown={(e) => {
+            // Prevent accidental closing with Escape key - comment out for now
+            if (e.key === 'Escape') {
+              console.log('Escape key pressed - modal closing disabled');
+              // setOpen(false);
+            }
+          }}
         >
-          <div className="w-full max-w-2xl card p-4 bg-[#0e1036] border border-white/10 mt-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold">{editingId ? 'Edit Customer' : 'New Customer'}</h3>
-              <button
-                onClick={() => setOpen(false)}
-                className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20"
-              >
+          <div 
+            className="w-full max-w-4xl rounded-2xl border border-brand-border max-h-[90vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ backgroundColor: '#0c1450' }}
+          >
+            {/* header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border flex-shrink-0 rounded-t-2xl" style={{ backgroundColor: '#0c1450' }}>
+              <h3 className="text-xl font-bold text-white">{editingId ? 'Edit Customer' : 'New Customer'}</h3>
+              <button onClick={() => {
+                console.log('Modal closed by close button');
+                setOpen(false);
+              }} className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
                 Close
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Name">
-                <input
-                  className="input"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="Full name"
-                />
-              </Field>
-              <Field label="Phone">
-                <input
-                  className="input"
-                  value={form.phone}
-                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                  placeholder="04xx xxx xxx"
-                />
-              </Field>
+            {/* scrollable content */}
+            <div className="px-6 py-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent hover:scrollbar-thumb-white/30" style={{ backgroundColor: '#0c1450' }}>
 
-              <Field label="Address" className="md:col-span-2">
-                <input
-                  className="input"
-                  value={form.address}
-                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                  placeholder="123 Example St"
-                />
-              </Field>
-
-              <Field label="Suburb">
-                <input
-                  className="input"
-                  value={form.suburb}
-                  onChange={e => setForm(f => ({ ...f, suburb: e.target.value }))}
-                  placeholder="Modbury"
-                />
-              </Field>
-
-              <Field label="Customer ID (5 digits)">
-                <div className="flex gap-2">
-                  <input
-                    className="input"
-                    value={form.customerId}
-                    onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))}
-                    placeholder="e.g. 12345"
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() =>
-                      setForm(f => ({
-                        ...f,
-                        customerId: genUniqueId(new Set(items.map(c => String(c.customerId))))
-                      }))
-                    }
-                  >
-                    Generate
-                  </button>
+              {/* Customer Information Section */}
+              <div className="mb-6 rounded-2xl p-6 border border-brand-sky/20" style={{ backgroundColor: '#0c1450' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold text-brand-sky flex items-center gap-2">
+                    <span>👤</span> Customer Information
+                  </h4>
                 </div>
-              </Field>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label="Name *">
+                    <input
+                      className="w-full px-3 py-2 rounded-lg border border-white/10 mt-1"
+                      style={{ backgroundColor: '#0c1450' }}
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Full name"
+                    />
+                  </Field>
+                  <Field label="Phone">
+                    <input
+                      className="w-full px-3 py-2 rounded-lg border border-white/10 mt-1"
+                      style={{ backgroundColor: '#0c1450' }}
+                      value={form.phone}
+                      onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                      placeholder="04xx xxx xxx"
+                    />
+                  </Field>
+
+                  <Field label="Address" className="md:col-span-2">
+                    <input
+                      className="w-full px-3 py-2 rounded-lg border border-white/10 mt-1"
+                      style={{ backgroundColor: '#0c1450' }}
+                      value={form.address}
+                      onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                      placeholder="123 Example St"
+                    />
+                  </Field>
+
+                  <Field label="Suburb">
+                    <input
+                      className="w-full px-3 py-2 rounded-lg border border-white/10 mt-1"
+                      style={{ backgroundColor: '#0c1450' }}
+                      value={form.suburb}
+                      onChange={e => setForm(f => ({ ...f, suburb: e.target.value }))}
+                      placeholder="Modbury"
+                    />
+                  </Field>
+
+                  <Field label="Customer ID (5 digits)">
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 px-3 py-2 rounded-lg border border-white/10 mt-1"
+                        style={{ backgroundColor: '#0c1450' }}
+                        value={form.customerId}
+                        onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))}
+                        placeholder="e.g. 12345"
+                      />
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-lg bg-brand-blue/20 hover:bg-brand-blue/30 text-brand-sky border border-brand-sky/30 font-medium transition-colors mt-1"
+                        onClick={() =>
+                          setForm(f => ({
+                            ...f,
+                            customerId: genUniqueId(new Set(items.map(c => String(c.customerId))))
+                          }))
+                        }
+                      >
+                        Generate
+                      </button>
+                    </div>
+                  </Field>
+                </div>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2 mt-4">
-              <button className="btn-blue" onClick={() => setOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={save}>
-                {editingId ? 'Update' : 'Save'}
-              </button>
+            {/* sticky footer */}
+            <div className="px-6 py-4 border-t border-brand-border rounded-b-2xl" style={{ backgroundColor: '#0c1450' }}>
+              <div className="flex justify-between items-center">
+                <div>
+                  {/* Empty div for left side alignment */}
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    className="px-6 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-all duration-200"
+                    onClick={() => {
+                      console.log('Modal closed by cancel button');
+                      setOpen(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-all duration-200 shadow-lg"
+                    onClick={save}
+                  >
+                    {editingId ? 'Update Customer' : 'Create Customer'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

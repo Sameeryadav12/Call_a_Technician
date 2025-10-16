@@ -5,14 +5,13 @@ import Header from '../components/Header';
 
 export default function IncomingJobs() {
   const [selectedJob, setSelectedJob] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
 
   // Fetch incoming jobs
   const { data: jobs = [], isLoading, error } = useQuery({
-    queryKey: ['incomingJobs', statusFilter, searchQuery],
-    queryFn: () => incomingJobsApi.getIncomingJobs({ status: statusFilter, q: searchQuery }),
+    queryKey: ['incomingJobs', searchQuery],
+    queryFn: () => incomingJobsApi.getIncomingJobs({ q: searchQuery }),
   });
 
   // Update job mutation
@@ -33,16 +32,17 @@ export default function IncomingJobs() {
     },
   });
 
-  const handleStatusChange = (jobId, newStatus) => {
-    updateJobMutation.mutate({ id: jobId, updates: { status: newStatus } });
-  };
-
-  const handleAssignmentChange = (jobId, technician) => {
-    updateJobMutation.mutate({ id: jobId, updates: { assignedTo: technician } });
-  };
 
   const handleNotesUpdate = (jobId, notes) => {
     updateJobMutation.mutate({ id: jobId, updates: { notes } });
+  };
+
+  const handleStatusChange = (jobId, status) => {
+    updateJobMutation.mutate({ id: jobId, updates: { status } });
+  };
+
+  const handleAssignmentChange = (jobId, assignedTo) => {
+    updateJobMutation.mutate({ id: jobId, updates: { assignedTo } });
   };
 
   const formatDate = (dateString) => {
@@ -55,15 +55,15 @@ export default function IncomingJobs() {
     });
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'New': return 'bg-blue-100 text-blue-800';
-      case 'In Progress': return 'bg-yellow-100 text-yellow-800';
-      case 'Completed': return 'bg-green-100 text-green-800';
-      case 'Cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const formatJobId = (mongoId) => {
+    // Convert MongoDB ObjectId to a readable job ID format
+    // Example: 68f04830abc86ba6f9f1c631 -> JOB-2025-001
+    const year = new Date().getFullYear();
+    const shortId = mongoId.slice(-6); // Get last 6 characters
+    const jobNumber = parseInt(shortId, 16) % 1000; // Convert to number and limit to 3 digits
+    return `JOB-${year}-${String(jobNumber).padStart(3, '0')}`;
   };
+
 
   if (isLoading) return (
     <>
@@ -109,17 +109,6 @@ export default function IncomingJobs() {
             className="input"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="select"
-        >
-          <option value="All">All Statuses</option>
-          <option value="New">New</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
       </div>
 
       {/* Jobs List */}
@@ -139,12 +128,6 @@ export default function IncomingJobs() {
                 </th>
                 <th className="py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
                   Images
-                </th>
-                <th className="py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
-                  Assigned To
                 </th>
                 <th className="py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
                   Date
@@ -189,27 +172,6 @@ export default function IncomingJobs() {
                       <span className="text-xs text-slate-400">No images</span>
                     )}
                   </td>
-                  <td className="py-3 whitespace-nowrap">
-                    <select
-                      value={job.status}
-                      onChange={(e) => handleStatusChange(job._id, e.target.value)}
-                      className="text-xs font-medium px-2 py-1 rounded-full border border-white/10 bg-white/5 text-white focus:ring-2 focus:ring-brand-sky"
-                    >
-                      <option value="New" className="bg-brand-bg text-white">New</option>
-                      <option value="In Progress" className="bg-brand-bg text-white">In Progress</option>
-                      <option value="Completed" className="bg-brand-bg text-white">Completed</option>
-                      <option value="Cancelled" className="bg-brand-bg text-white">Cancelled</option>
-                    </select>
-                  </td>
-                  <td className="py-3 whitespace-nowrap">
-                    <input
-                      type="text"
-                      value={job.assignedTo || ''}
-                      onChange={(e) => handleAssignmentChange(job._id, e.target.value)}
-                      placeholder="Assign technician..."
-                      className="text-sm border border-white/10 bg-white/5 text-white rounded px-2 py-1 focus:ring-2 focus:ring-brand-sky"
-                    />
-                  </td>
                   <td className="py-3 whitespace-nowrap text-sm text-slate-300">
                     {formatDate(job.createdAt)}
                   </td>
@@ -217,8 +179,9 @@ export default function IncomingJobs() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedJob(job)}
-                        className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+                        className="px-4 py-2 rounded-lg bg-brand-blue/20 hover:bg-brand-blue/30 text-brand-sky border border-brand-sky/30 font-medium transition-all duration-200 flex items-center gap-2"
                       >
+                        <span>👁️</span>
                         View
                       </button>
                       <button
@@ -227,9 +190,10 @@ export default function IncomingJobs() {
                             deleteJobMutation.mutate(job._id);
                           }
                         }}
-                        className="px-3 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white"
+                        className="px-4 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 font-medium transition-all duration-200 flex items-center gap-2 shadow-lg"
                         disabled={deleteJobMutation.isPending}
                       >
+                        <span>🗑️</span>
                         Delete
                       </button>
                     </div>
@@ -249,121 +213,110 @@ export default function IncomingJobs() {
 
       {/* Job Detail Modal */}
       {selectedJob && (
-        <div className="fixed inset-0 bg-black/60 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border border-white/10 w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-brand-bg">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-white">
-                  Job Request Details
-                </h3>
-                <button
-                  onClick={() => setSelectedJob(null)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div 
+            className="w-full max-w-4xl rounded-2xl border border-brand-border max-h-[90vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ backgroundColor: '#0c1450' }}
+          >
+            {/* header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border flex-shrink-0 rounded-t-2xl" style={{ backgroundColor: '#0c1450' }}>
+              <h3 className="text-xl font-bold text-white">Job Request Details</h3>
+              <button 
+                onClick={() => setSelectedJob(null)} 
+                className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300">Customer Name</label>
-                  <p className="mt-1 text-sm text-white">{selectedJob.fullName}</p>
-                </div>
+            {/* scrollable content */}
+            <div className="px-6 py-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent hover:scrollbar-thumb-white/30" style={{ backgroundColor: '#0c1450' }}>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300">Phone</label>
-                  <p className="mt-1 text-sm text-white">{selectedJob.phone}</p>
-                </div>
-
-                {selectedJob.email && (
+              {/* Customer Details Section */}
+              <div className="mb-6 rounded-2xl p-6 border border-brand-sky/20" style={{ backgroundColor: '#0c1450' }}>
+                <h4 className="text-lg font-semibold text-brand-sky flex items-center gap-2 mb-4">
+                  <span>👤</span> Customer Details
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300">Email</label>
-                    <p className="mt-1 text-sm text-white">{selectedJob.email}</p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300">Description</label>
-                  <p className="mt-1 text-sm text-white">{selectedJob.description}</p>
-                </div>
-
-                {/* Image Gallery */}
-                {selectedJob.images && selectedJob.images.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Uploaded Images ({selectedJob.images.length})
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {selectedJob.images.map((image, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={image}
-                            alt={`Job image ${index + 1}`}
-                            className="w-full h-40 object-cover rounded-lg border-2 border-white/20 cursor-pointer hover:border-brand-sky transition"
-                            onClick={() => window.open(image, '_blank')}
-                          />
-                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition rounded-lg flex items-center justify-center">
-                            <span className="text-white opacity-0 group-hover:opacity-100 text-sm font-medium">
-                              Click to enlarge
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Customer Name</label>
+                    <div className="px-3 py-2 rounded-lg border border-white/10 text-white text-sm" style={{ backgroundColor: '#0c1450' }}>
+                      {selectedJob.fullName}
                     </div>
                   </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300">Status</label>
-                  <select
-                    value={selectedJob.status}
-                    onChange={(e) => {
-                      setSelectedJob({ ...selectedJob, status: e.target.value });
-                      handleStatusChange(selectedJob._id, e.target.value);
-                    }}
-                    className="mt-1 block w-full px-3 py-2 border border-white/10 bg-white/5 text-white rounded-md shadow-sm focus:outline-none focus:ring-brand-sky focus:border-brand-sky"
-                  >
-                    <option value="New" className="bg-brand-bg text-white">New</option>
-                    <option value="In Progress" className="bg-brand-bg text-white">In Progress</option>
-                    <option value="Completed" className="bg-brand-bg text-white">Completed</option>
-                    <option value="Cancelled" className="bg-brand-bg text-white">Cancelled</option>
-                  </select>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Phone</label>
+                    <div className="px-3 py-2 rounded-lg border border-white/10 text-white text-sm" style={{ backgroundColor: '#0c1450' }}>
+                      {selectedJob.phone}
+                    </div>
+                  </div>
+                  {selectedJob.email && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+                      <div className="px-3 py-2 rounded-lg border border-white/10 text-white text-sm" style={{ backgroundColor: '#0c1450' }}>
+                        {selectedJob.email}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300">Assigned To</label>
-                  <input
-                    type="text"
-                    value={selectedJob.assignedTo || ''}
-                    onChange={(e) => {
-                      setSelectedJob({ ...selectedJob, assignedTo: e.target.value });
-                      handleAssignmentChange(selectedJob._id, e.target.value);
-                    }}
-                    placeholder="Assign technician..."
-                    className="mt-1 block w-full px-3 py-2 border border-white/10 bg-white/5 text-white rounded-md shadow-sm focus:outline-none focus:ring-brand-sky focus:border-brand-sky"
-                  />
+              {/* Job Description Section */}
+              <div className="mb-6 rounded-2xl p-6 border border-brand-sky/20" style={{ backgroundColor: '#0c1450' }}>
+                <h4 className="text-lg font-semibold text-brand-sky flex items-center gap-2 mb-4">
+                  <span>📝</span> Job Description
+                </h4>
+                <div className="px-3 py-2 rounded-lg border border-white/10 text-white text-sm" style={{ backgroundColor: '#0c1450' }}>
+                  {selectedJob.description}
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300">Notes</label>
-                  <textarea
-                    value={selectedJob.notes || ''}
-                    onChange={(e) => {
-                      setSelectedJob({ ...selectedJob, notes: e.target.value });
-                      handleNotesUpdate(selectedJob._id, e.target.value);
-                    }}
-                    rows={3}
-                    placeholder="Add notes..."
-                    className="mt-1 block w-full px-3 py-2 border border-white/10 bg-white/5 text-white rounded-md shadow-sm focus:outline-none focus:ring-brand-sky focus:border-brand-sky"
-                  />
+              {/* Image Gallery Section */}
+              {selectedJob.images && selectedJob.images.length > 0 && (
+                <div className="mb-6 rounded-2xl p-6 border border-brand-sky/20" style={{ backgroundColor: '#0c1450' }}>
+                  <h4 className="text-lg font-semibold text-brand-sky flex items-center gap-2 mb-4">
+                    <span>🖼️</span> Uploaded Images ({selectedJob.images.length})
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedJob.images.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={image}
+                          alt={`Job image ${index + 1}`}
+                          className="w-full h-40 object-cover rounded-lg border-2 border-white/20 cursor-pointer hover:border-brand-sky transition"
+                          onClick={() => window.open(image, '_blank')}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition rounded-lg flex items-center justify-center">
+                          <span className="text-white opacity-0 group-hover:opacity-100 text-sm font-medium">
+                            Click to enlarge
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300">Submitted</label>
-                  <p className="mt-1 text-sm text-white">{formatDate(selectedJob.createdAt)}</p>
+
+              {/* Job Information Section */}
+              <div className="rounded-2xl p-6 border border-brand-sky/20" style={{ backgroundColor: '#0c1450' }}>
+                <h4 className="text-lg font-semibold text-brand-sky flex items-center gap-2 mb-4">
+                  <span>📋</span> Job Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Submitted</label>
+                    <div className="px-3 py-2 rounded-lg border border-white/10 text-white text-sm" style={{ backgroundColor: '#0c1450' }}>
+                      {formatDate(selectedJob.createdAt)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Job ID</label>
+                    <div className="px-3 py-2 rounded-lg border border-white/10 text-white text-sm font-mono" style={{ backgroundColor: '#0c1450' }}>
+                      {formatJobId(selectedJob._id)}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

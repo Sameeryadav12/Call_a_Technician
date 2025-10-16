@@ -79,9 +79,27 @@ const InvoiceSchema = new mongoose.Schema({
   number:    { type: String, required: true, trim: true }, // e.g. INV-1101
   customer:  { type: String, default: '' },
   amount:    { type: Number, default: 0 },
-  status:    { type: String, enum: ['Unpaid','Paid','Overdue','Void'], default: 'Unpaid' },
+  status:    { type: String, enum: ['Unpaid','Pending','Paid','Overdue','Void'], default: 'Pending' },
   date:      { type: Date, default: Date.now },
-  notes:     { type: String, default: '' },                 // UI “Description” maps here
+  notes:     { type: String, default: '' },                 // UI "Description" maps here
+  // Enhanced customer details
+  customerId: { type: String },
+  customerName: { type: String },
+  customerPhone: { type: String },
+  customerEmail: { type: String },
+  customerAddress: { type: String },
+  // Job details
+  jobTitle: { type: String },
+  jobDescription: { type: String },
+  // Pricing breakdown
+  fixedPrice: { type: Number, default: 165 },
+  additionalMins: { type: Number, default: 0 },
+  software: [{
+    name: String,
+    value: Number
+  }],
+  pensionYearDiscount: { type: Boolean, default: false },
+  socialMediaDiscount: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
 }, { timestamps: true });
 InvoiceSchema.index({ createdBy: 1, number: 1 }, { unique: true });
@@ -130,10 +148,10 @@ const IncomingJobRequestSchema = new mongoose.Schema({
   email: { type: String, trim: true, default: '' },
   description: { type: String, required: true, trim: true },
   images: { type: [String], default: [] }, // Array of base64 encoded images
-  status: { 
-    type: String, 
-    enum: ['New', 'In Progress', 'Completed', 'Cancelled'], 
-    default: 'New' 
+  status: {
+    type: String,
+    enum: ['New', 'In Progress', 'Completed', 'Cancelled'],
+    default: 'New'
   },
   assignedTo: { type: String, default: '' }, // Technician name
   notes: { type: String, default: '' },
@@ -144,6 +162,22 @@ const IncomingJobRequestSchema = new mongoose.Schema({
 IncomingJobRequestSchema.index({ createdAt: -1 });
 IncomingJobRequestSchema.index({ status: 1 });
 const IncomingJobRequest = mongoose.models.IncomingJobRequest || mongoose.model('IncomingJobRequest', IncomingJobRequestSchema);
+
+// Customer Schema for CRM
+const CustomerSchema = new mongoose.Schema({
+  customerId: { type: String, required: true, unique: true },
+  name: { type: String, required: true, trim: true },
+  phone: { type: String, required: true, trim: true },
+  email: { type: String, trim: true, default: '' },
+  address: { type: String, trim: true, default: '' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+CustomerSchema.index({ customerId: 1 });
+CustomerSchema.index({ name: 1 });
+CustomerSchema.index({ phone: 1 });
+const Customer = mongoose.models.Customer || mongoose.model('Customer', CustomerSchema);
 
 // Make sure we have an index to speed up overlap checks (if not defined in Job schema)
 (async () => {
@@ -459,7 +493,23 @@ app.post('/api/invoices', auth, async (req, res) => {
       status = 'Unpaid',
       date = Date.now(),
       notes = '',
-      description
+      description,
+      // Enhanced customer details
+      customerId,
+      customerName,
+      customerPhone,
+      customerEmail,
+      customerAddress,
+      // Job details
+      jobTitle,
+      jobDescription,
+      // Pricing breakdown
+      fixedPrice = 165,
+      additionalMins = 0,
+      software = [],
+      // Discounts
+      pensionYearDiscount = false,
+      socialMediaDiscount = false
     } = req.body || {};
 
     if (!number) return res.status(400).json({ error: 'Invoice number is required' });
@@ -471,6 +521,22 @@ app.post('/api/invoices', auth, async (req, res) => {
       status,
       date,
       notes: (description ?? notes ?? ''),
+      // Enhanced customer details
+      customerId,
+      customerName,
+      customerPhone,
+      customerEmail,
+      customerAddress,
+      // Job details
+      jobTitle,
+      jobDescription,
+      // Pricing breakdown
+      fixedPrice: Number(fixedPrice) || 165,
+      additionalMins: Number(additionalMins) || 0,
+      software: Array.isArray(software) ? software : [],
+      // Discounts
+      pensionYearDiscount: Boolean(pensionYearDiscount),
+      socialMediaDiscount: Boolean(socialMediaDiscount),
       createdBy: req.user.sub
     });
     res.json(doc);
@@ -718,6 +784,96 @@ app.get('/api/technicians/names', auth, async (req, res) => {
 app.get('/api/technicians/:id/availability', (req,res,next)=> {
   req.url = `/api/techs/${req.params.id}/availability${req._parsedUrl.search||''}`;
   next();
+});
+
+/* ---------- Customer CRM Routes ---------- */
+// Get all customers
+app.get('/api/customers', auth, async (req, res) => {
+  try {
+    const customers = await Customer.find({}).sort({ createdAt: -1 });
+    res.json(customers);
+  } catch (e) {
+    return sendErr(res, 500, 'Failed to load customers');
+  }
+});
+
+// Create new customer
+app.post('/api/customers', auth, async (req, res) => {
+  try {
+    const { customerId, name, phone, email, address } = req.body;
+    
+    if (!customerId || !name || !phone) {
+      return sendErr(res, 400, 'Customer ID, name, and phone are required');
+    }
+    
+    const customer = await Customer.create({
+      customerId,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email ? email.trim() : '',
+      address: address ? address.trim() : ''
+    });
+    
+    res.status(201).json(customer);
+  } catch (e) {
+    if (e.code === 11000) {
+      return sendErr(res, 400, 'Customer ID already exists');
+    }
+    return sendErr(res, 500, 'Failed to create customer');
+  }
+});
+
+// Update customer
+app.put('/api/customers/:id', auth, async (req, res) => {
+  try {
+    const { name, phone, email, address } = req.body;
+    
+    const customer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      {
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email ? email.trim() : '',
+        address: address ? address.trim() : '',
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!customer) {
+      return sendErr(res, 404, 'Customer not found');
+    }
+    
+    res.json(customer);
+  } catch (e) {
+    return sendErr(res, 500, 'Failed to update customer');
+  }
+});
+
+// Delete customer
+app.delete('/api/customers/:id', auth, async (req, res) => {
+  try {
+    const customer = await Customer.findByIdAndDelete(req.params.id);
+    if (!customer) {
+      return sendErr(res, 404, 'Customer not found');
+    }
+    res.json({ message: 'Customer deleted successfully' });
+  } catch (e) {
+    return sendErr(res, 500, 'Failed to delete customer');
+  }
+});
+
+// Get single customer
+app.get('/api/customers/:id', auth, async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) {
+      return sendErr(res, 404, 'Customer not found');
+    }
+    res.json(customer);
+  } catch (e) {
+    return sendErr(res, 500, 'Failed to load customer');
+  }
 });
 
 /* ---------- Incoming Job Requests (Admin Portal) ---------- */
